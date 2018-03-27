@@ -19,4 +19,9 @@ This class can be used to do for things below.
 
 
 '''
-class localAgent:
+import threading
+
+class localAgent():
+    def ___init__(self):
+        pass
+    def
