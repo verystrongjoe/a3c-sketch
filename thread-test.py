@@ -7,6 +7,8 @@ import time
 
 exitFlag = 0
 
+# https://www.tutorialspoint.com/python/python_multithreading.htm
+
 class myThread (threading.Thread):
     def __init__(self, threadID, name, q):
         threading.Thread.__init__(self)
