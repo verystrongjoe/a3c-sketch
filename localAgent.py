@@ -15,8 +15,8 @@ This class can be used to do for things below.
     . action_size
     . state_size
  g. it is inherited from Thread
-
-
-
 '''
-class localAgent:
+import threading
+
+class localAgent():
+        pass
