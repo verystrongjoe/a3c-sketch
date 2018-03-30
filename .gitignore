@@ -1,8 +1,8 @@
-# 별도 추가
+﻿# 별도 추가
 venv/
 .gitkeep
 .idea/
-
+.idea
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
