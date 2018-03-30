@@ -12,7 +12,7 @@ _action_size = 20
 _hidden1 = 20
 _hidden2 = 20
 
-def build_model(self,state_size=_state_size,
+def build_model(state_size=_state_size,
                 action_size=_action_size,hidden1=_hidden1,
                 hidden2=_hidden2, verbose=False):
 
@@ -36,7 +36,7 @@ def build_model(self,state_size=_state_size,
 
 
 # make loss function for Value approximation
-def critic_optimizer(self, critic, critic_learning_rate):
+def critic_optimizer(critic, critic_learning_rate):
     discounted_reward = K.placeholder(shape=(None,))
 
     value = critic.output
@@ -47,7 +47,7 @@ def critic_optimizer(self, critic, critic_learning_rate):
     train = K.function([critic.input, discounted_reward], [], updates=update)
     return train
 
-def actor_optimizer(self, actor, action_size=_action_size):
+def actor_optimizer(actor, actor_learning_rate, action_size=_action_size):
     action = K.placeholder(shape=(None, action_size))
     advantages = K.placeholder(shape=(None,))
 
@@ -60,7 +60,15 @@ def actor_optimizer(self, actor, action_size=_action_size):
 
     actor_loss = loss + 0.01 * entropy
 
-    optimizer = Adam(lr=self.actor_lr)
-    updates = optimizer.get_updates(self.actor.trainable_weights, [], actor_loss)
-    train = K.function([self.actor.input, action, advantages], [], updates=updates)
+    optimizer = Adam(lr=actor_learning_rate)
+    updates = optimizer.get_updates(actor.trainable_weights, [], actor_loss)
+    train = K.function([actor.input, action, advantages], [], updates=updates)
     return train
+
+def save_model(actor, critic, name):
+    actor.save_weights(name + "_actor.h5")
+    critic.save_weights(name + "_critic.h5")
+
+def load_model(actor, critic, name):
+    actor.actor.load_weights(name + "_actor.h5")
+    critic.critic.load_weights(name + "_critic.h5")

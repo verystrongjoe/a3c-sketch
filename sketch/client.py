@@ -7,7 +7,6 @@ import  random
 import sched, time
 from threading import Timer
 
-
 class Client(object):
     def __init__(self, url, timeout):
         self.url = url
@@ -15,16 +14,17 @@ class Client(object):
         self.ioloop = IOLoop.instance()
         self.ws = None
         self.connect()
-        PeriodicCallback(self.timer, 1000, io_loop=self.ioloop).start()
-        # PeriodicCallback(self.get_weight_from_global_network, 3000, io_loop=self.ioloop).start()
+        # PeriodicCallback(self.timer, 1000).start()
+        PeriodicCallback(self.send_weight_to_global_network, 1000).start()
+        PeriodicCallback(self.get_weight_from_global_network, 3000).start()
         self.ioloop.start()
 
     def onMsgCallback(self, msg):
-        print('callback!! {}'.format(msg))
+        print('we get the gradient from server : {}'.format(msg))
 
     @gen.coroutine
     def connect(self):
-        print ("trying to connect")
+        print("trying to connect")
         try:
             self.ws = yield websocket_connect(self.url, on_message_callback=self.onMsgCallback)
         except Exception as e:
@@ -46,14 +46,14 @@ class Client(object):
     def _get_gradient(self):
         return random.random()
 
-    def timer(self):
+    # def timer(self):
         # print('timer...')
         # s = sched.scheduler(time.time, time.sleep)
         # s.enter(1, 1, self.send_weight_to_global_network, ())
         # s.enter(2, 1, self.get_weight_from_global_network, ())
         # s.run()
-        Timer(3, self.get_weight_from_global_network, ()).start()
-        Timer(1, self.send_weight_to_global_network, ()).start()
+        # Timer(3, self.get_weight_from_global_network, (self.ioloop)).start()
+        # Timer(1, self.send_weight_to_global_network, (self.ioloop)).start()
 
     def send_weight_to_global_network(self):
         print('send_weight_to_global_network...')
@@ -65,7 +65,6 @@ class Client(object):
     def get_weight_from_global_network(self):
         print('trying to get message from global network!!')
         if self.ws is None:
-            # print('????')
             self.connect()
         else:
             # print('!!!')

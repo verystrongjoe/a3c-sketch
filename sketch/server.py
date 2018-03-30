@@ -3,15 +3,11 @@ websocket server
 https://gist.github.com/timsavage/d412d9e321e9f6d358abb335c8d41c63
 https://os.mbed.com/cookbook/Websockets-Server
 '''
-import threading
 import logging
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-from tornado.options import define, options, parse_command_line
-import socket
-import local
-import time
+from tornado.options import define, options
 import collections
 
 define("port", default=9044, help="run on the given port", type=int)
@@ -29,9 +25,14 @@ q = collections.deque(maxlen=100)
 
 class Application(tornado.web.Application):
     def __init__(self):
-        handlers = [(r"/", WebSocketHandler)]
+        handlers = [(r"/get", WebSocketHandler),
+                    (r"/send", WebSocketHandler)
+                    ]
+
+
         settings = dict(debug=True)
         tornado.web.Application.__init__(self, handlers, **settings)
+
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     def open(self, *args):
@@ -77,4 +78,3 @@ if __name__ == "__main__":
     # thread2 = local.localAgent(2, '10.0.75.1', 8888)
     # thread1.start()
     # thread2.start()
-
