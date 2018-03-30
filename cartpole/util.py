@@ -60,7 +60,3 @@ if __name__ == "__main__":
     s =  pickle.dumps(dict)
     data_loaded = pickle.loads(s)
     print(data_loaded['a'])
-
-
-
-
