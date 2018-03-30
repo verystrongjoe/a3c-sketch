@@ -1,19 +1,13 @@
-import threading, requests, time
+import tornado
+from tornado.ioloop import IOLoop
 
+def task(num):
+    print('task %s' % num)
 
-class HtmlGetter(threading.Thread):
-    def __init__(self, url):
-        print('what!!')
-        threading.Thread.__init__(self)
-        self.url = url
+def create_task(num):
+    tornado.ioloop.IOLoop.instance().add_callback(callback=lambda: task(num))
 
-    def run(self):
-        resp = requests.get(self.url)
-        time.sleep(1)
-        print(self.url, len(resp.text), ' chars')
-
-
-t = HtmlGetter('http://google.com')
-t.start()
-
-print("### End ###")
+if __name__ == '__main__':
+    for i in range(1,5):
+        create_task(i)
+    IOLoop.instance().start()

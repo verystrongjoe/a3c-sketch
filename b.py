@@ -1,46 +1,23 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# import time
+# from threading import Timer
+# def print_time():
+#     print("From print_time", time.time())
+#
+# def print_some_times():
+#     print(time.time())
+#     Timer(5, print_time, ()).start()
+#     Timer(10, print_time, ()).start()
+#     time.sleep(11)  # sleep while time-delay events execute
+#     print(time.time())
+#
+# print_some_times()
 
-from tornado.ioloop import IOLoop, PeriodicCallback
-from tornado import gen
-from tornado.websocket import websocket_connect
 
+import collections
 
-class Client(object):
-    def __init__(self, url, timeout):
-        self.url = url
-        self.timeout = timeout
-        self.ioloop = IOLoop.instance()
-        self.ws = None
-        self.connect()
-        PeriodicCallback(self.keep_alive, 20000, io_loop=self.ioloop).start()
-        self.ioloop.start()
+a = collections.deque()
 
-    @gen.coroutine
-    def connect(self):
-        print ("trying to connect")
-        try:
-            self.ws = yield websocket_connect(self.url)
-        except  Exception as e:
-            print("connection error : {}".format(e))
-        else:
-            print ("connected")
-            self.run()
+a.append(1)
+a.append(2)
 
-    @gen.coroutine
-    def run(self):
-        while True:
-            msg = yield self.ws.read_message()
-            if msg is None:
-                print ("connection closed")
-                self.ws = None
-                break
-
-    def keep_alive(self):
-        if self.ws is None:
-            self.connect()
-        else:
-            self.ws.write_message("keep alive")
-
-if __name__ == "__main__":
-    client = Client("ws://10.0.75.1:8888/", 5)
+print(a[len(a)])
