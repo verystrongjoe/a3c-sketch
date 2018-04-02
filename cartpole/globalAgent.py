@@ -39,10 +39,10 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         logging.info("message: {}".format(message))
 
-        if message == 'send_actor_model' :
-            print('Server is going to send weight of actor model'.format(q))
+        if message == 'send' :
+            print('Server is going to send weight of actor/critic model'.format(q))
             if len(q) == 0:
-                self.write_message(str(0))
+                raise RuntimeError("No weight in queue")
             else:
                 self.write_message(str(q[len(q)-1]))
         elif message == 'request_critic_model':
@@ -63,6 +63,9 @@ class globalAgent():
         app = Application()
         app.listen(options.port)
         tornado.ioloop.IOLoop.instance().start()
+
+        # first weight of two models must be appended to the queue
+        q.append(util.get_gradient_with_serialized_data(actor,critic))
 
 
 

@@ -16,19 +16,25 @@ def get_model_for_test() :
 #  - https://stackoverflow.com/questions/43715047/keras-2-x-get-weights-of-layer/43856966#43856966
 # set weight
 #  - https://stackoverflow.com/questions/47183159/how-to-set-weights-in-keras-with-a-numpy-array
-def get_gradient_with_serialized_data(model):
-    dict = {}
-    for layer in model.layers:
-        dict[layer.get_config()] = layer.get_weights()
+def get_gradient_with_serialized_data(model_actor, model_critic):
+    dict_pair = ({}, {})
+    for layer in model_actor.layers:
+        dict_pair[0][layer.get_config()] = layer.get_weights()
+    for layer in model_critic.layers:
+        dict_pair[1][layer.get_config()] = layer.get_weights()
+
     return pickle.dumps(dict)
 
-def set_gradient_with_serialized_data(model, d):
-    dict = pickle.loads(d)
+def set_gradient_with_serialized_data(model_actor, model_critic, d):
+    dict_pair = pickle.loads(d)
 
-    for layer_name in dict.keys():
-        model.get_layer(layer_name).set_weights(dict[layer_name])
+    for layer_name in dict_pair[0].keys():
+        model_actor.get_layer(layer_name).set_weights(dict_pair[0][layer_name])
 
-    return model
+    for layer_name in dict_pair[1].keys():
+        model_critic.get_layer(layer_name).set_weights(dict_pair[1][layer_name])
+
+    return model_actor, model_critic
 
 if __name__ == "__main__":
 
