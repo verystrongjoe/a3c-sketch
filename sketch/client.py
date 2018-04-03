@@ -8,7 +8,11 @@ import sched, time
 from threading import Timer
 
 class Client(object):
+
+
     def __init__(self, url, timeout):
+
+        # self._url = 'ws://' + ip + ":" + str(port)
         self.url = url
         self.timeout = timeout
         self.ioloop = IOLoop.instance()

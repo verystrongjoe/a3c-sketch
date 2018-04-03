@@ -22,32 +22,36 @@ import cartpole.network as network
 define("port", default=9044, help="run on the given port", type=int)
 
 q = collections.deque(maxlen=100)
-actor, critic = network.build_model()
+actor, critic = network.build_model() # declaring here is to share this between WShanlder and global agent
 
 class Application(tornado.web.Application):
     def __init__(self):
-        handlers = [(r"/get", WSHandler)
+        handlers = [(r"/", WSHandler)
                     ]
         settings = dict(debug=True)
         tornado.web.Application.__init__(self, handlers, **settings)
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     def open(self, *args):
+        self.local_agent_id = self.get_argument("local_agent_id")
         print('self.local_agent_id  : ' ,self.local_agent_id)
         self.stream.set_nodelay(True)
 
     def on_message(self, message):
-        logging.info("message: {}".format(message))
+        logging.info("on_message: {}".format(message))
 
-        if message == 'send' :
-            print('Server is going to send weight of actor/critic model'.format(q))
+        if message == 'send':
             if len(q) == 0:
-                raise RuntimeError("No weight in queue")
-            else:
-                self.write_message(str(q[len(q)-1]))
-        elif message == 'request_critic_model':
+                #raise RuntimeError("No weight in queue")
+                while True:
+                    if len(q) != 0:
+                        break
 
-        elif message == 'request_actor_model':
+            print('Server is going to send weight of actor/critic model. Weight : {} '.format(str(q[len(q)-1])))
+            self.write_message(q[len(q)-1], True)
+
+            # self.write_message(str(q[len(q) - 1]))
+        elif message == 'request':
             q.append(message)
 
     def on_close(self):
@@ -55,23 +59,22 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
 
 class globalAgent():
+
     '''
         start server for receiving and sending information
     '''
-    def __init__(self, ip, port):
-        tornado.options.parse_command_line()
-        app = Application()
-        app.listen(options.port)
-        tornado.ioloop.IOLoop.instance().start()
+    def __init__(self, ip=None, port=None):
 
         # first weight of two models must be appended to the queue
-        q.append(util.get_gradient_with_serialized_data(actor,critic))
+        q.append(util.get_weight_with_serialized_data(actor,critic))
 
+        tornado.options.parse_command_line()
+        app = Application()
+        if port is None :
+            app.listen(options.port)
+        else:
+            app.listen(port)
+        tornado.ioloop.IOLoop.instance().start()
 
-
-if __name__ == "__main__":
-
-
-
-
-
+if __name__ =="__main__":
+    globalAgent()

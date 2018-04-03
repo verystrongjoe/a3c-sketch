@@ -30,7 +30,6 @@ class localAgent(threading.Thread):
         websocket_connect(self._url).write_message(sending_value)
         return sending_value
 
-
     def run(self):
         while True:
             v = self._send_to_main_network()
