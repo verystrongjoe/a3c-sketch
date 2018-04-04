@@ -46,22 +46,26 @@ def get_weight_with_serialized_data(model_actor, model_critic):
     model_actor_weight = model_actor.get_weights()
     model_critic_weight = model_critic.get_weights()
 
-    return model_actor_weight, model_critic_weight
 
+
+    # return model_actor_weight, model_critic_weight
+    return pickle.dumps((model_actor_weight, model_critic_weight))
     # return d
 
 def set_weight_with_serialized_data(model_actor, model_critic, d):
     dict_pair = pickle.loads(d)
 
-    print(dict_pair)
+    # print(dict_pair)
 
     # for layer_name in dict_pair['actor'].keys():
-    for layer_name in dict_pair[0].keys():
-        model_actor.get_layer(layer_name).set_weights(dict_pair[0][layer_name])
-
-    # for layer_name in dict_pair['critic'].keys():
-    for layer_name in dict_pair[1].keys():
-        model_critic.get_layer(layer_name).set_weights(dict_pair[1][layer_name])
+    # for layer_name in dict_pair[0].keys():
+    #     model_actor.get_layer(layer_name).set_weights(dict_pair[0][layer_name])
+    #
+    # # for layer_name in dict_pair['critic'].keys():
+    # for layer_name in dict_pair[1].keys():
+    #     model_critic.get_layer(layer_name).set_weights(dict_pair[1][layer_name])
+    model_actor.set_weights(dict_pair[0])
+    model_critic.set_weights(dict_pair[1])
 
     return model_actor, model_critic
 
@@ -70,12 +74,11 @@ if __name__ == "__main__":
     actor = get_model_for_test()
     critic = get_model_for_test()
 
-    w1, w2 = get_weight_with_serialized_data(actor, critic)
+    w = get_weight_with_serialized_data(actor, critic)
 
-    set_weight_with_serialized_data(actor,critic, w1, w2)
+    set_weight_with_serialized_data(actor,critic, w)
 
-
-    pass
+    # pass
 
     '''
     tesing about data serialization

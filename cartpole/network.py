@@ -7,14 +7,14 @@ This nework is for a3c network which can be either global or local network.
 This network is consist of two network, advantage and policy network.
 '''
 
-_state_size = 20
-_action_size = 20
-_hidden1 = 20
-_hidden2 = 20
+# _state_size = 20
+# _action_size = 20
+# _hidden1 = 20
+# _hidden2 = 20
 
-def build_model(state_size=_state_size,
-                action_size=_action_size,hidden1=_hidden1,
-                hidden2=_hidden2, verbose=False):
+def build_model(state_size,
+                action_size,hidden1,
+                hidden2, verbose=False):
 
     state = Input(batch_shape=(None, state_size))
     shared = Dense(hidden1, input_dim=state_size, activation='relu')(state)
@@ -47,11 +47,13 @@ def critic_optimizer(critic, critic_learning_rate):
     train = K.function([critic.input, discounted_reward], [], updates=update)
     return train
 
-def actor_optimizer(actor, actor_learning_rate, action_size=_action_size):
+def actor_optimizer(actor, actor_learning_rate, action_size):
+
     action = K.placeholder(shape=(None, action_size))
     advantages = K.placeholder(shape=(None,))
 
     policy = actor.output
+
     good_prob = K.sum(action*policy, axis=1)
     eligibility = K.log(good_prob + 1e-10) * K.stop_gradient(advantages)
     loss = -K.sum(eligibility)

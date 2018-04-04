@@ -18,11 +18,20 @@ import collections
 
 import cartpole.util as util
 import cartpole.network as network
+import  gym
+import cartpole.config as config
 
 define("port", default=9044, help="run on the given port", type=int)
 
 q = collections.deque(maxlen=100)
-actor, critic = network.build_model() # declaring here is to share this between WShanlder and global agent
+clients = []
+
+env = gym.make(config.A3C_ENV['env_name'])
+
+action_size = env.action_space.n
+state_size = env.observation_space.shape[0]
+
+actor, critic = network.build_model(state_size, action_size, 24, 24, True)  # declaring here is to share this between WShanlder and global agent
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -36,6 +45,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.local_agent_id = self.get_argument("local_agent_id")
         print('self.local_agent_id  : ' ,self.local_agent_id)
         self.stream.set_nodelay(True)
+        clients.append(self)
 
     def on_message(self, message):
         logging.info("on_message: {}".format(message))
@@ -47,16 +57,18 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     if len(q) != 0:
                         break
 
-            print('Server is going to send weight of actor/critic model. Weight : {} '.format(str(q[len(q)-1])))
+            # print('Server is going to send weight of actor/critic model. Weight : {} '.format(str(q[len(q)-1])))
             self.write_message(q[len(q)-1], True)
 
             # self.write_message(str(q[len(q) - 1]))
-        elif message == 'request':
+        # elif message == 'request':
+        else:
+            print('Server received weight from local: {} '.format(message))
             q.append(message)
 
     def on_close(self):
+        clients.remove(self)
         logging.info("A client disconnected")
-
 
 class globalAgent():
 
