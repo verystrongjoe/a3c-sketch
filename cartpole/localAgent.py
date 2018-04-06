@@ -155,7 +155,7 @@ class localAgent():
                 while True:
 
                         try:
-                                response = yield self.ws.read_message()
+                                response = yield self.ws.read_message(callback=self.cb_receive_weight)
                         except StreamClosedError:
                                 self._abort()
 
