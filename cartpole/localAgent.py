@@ -160,6 +160,10 @@ class localAgent():
                                 self._abort()
 
                         # result = future.result(timeout)  # Wait for the result with a timeout
+                        #TODO:  http://masnun.com/2015/11/20/python-asyncio-future-task-and-the-event-loop.html
+                        #TODO:  http://www.tornadoweb.org/en/stable/concurrent.html
+                        #TODO:  https://www.youtube.com/watch?v=IqoYVfoetFg
+                        #TODO:  https://www.youtube.com/watch?v=SkETonolR3U
 
                         if response.done() :
                                 print('weight of global network : {} '.format(f.result()))
