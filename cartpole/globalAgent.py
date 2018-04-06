@@ -15,6 +15,9 @@ import tornado.web
 import tornado.websocket
 from tornado.options import define, options
 import collections
+from tornado import gen
+
+
 
 import cartpole.util as util
 import cartpole.network as network
@@ -41,14 +44,18 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers, **settings)
 
 class WSHandler(tornado.websocket.WebSocketHandler):
+
     def open(self, *args):
         self.local_agent_id = self.get_argument("local_agent_id")
-        print('self.local_agent_id  : ' ,self.local_agent_id)
-        self.stream.set_nodelay(True)
+        print('self.local_agent_id  : {}'.format(self.local_agent_id))
+        # self.stream.set_nodelay(True)
         clients.append(self)
 
+    @gen.coroutine
     def on_message(self, message):
-        logging.info("on_message: {}".format(message))
+        # self.write_message(u"You said: " + message)
+        # print("on_message: {}".format(message))
+        # logging.info("on_message: {}".format(message))
 
         if message == 'send':
             if len(q) == 0:
@@ -57,18 +64,20 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     if len(q) != 0:
                         break
 
-            # print('Server is going to send weight of actor/critic model. Weight : {} '.format(str(q[len(q)-1])))
-            self.write_message(q[len(q)-1], True)
-
+            print('Server is going to send weight of actor/critic model. Weight : {} '.format(str(q[len(q)-1])))
+            # response = yield self.write_message(q[len(q)-1], True)
+            self.write_message(q[len(q) - 1], True)
+            # print('response : {}'.format(response))
             # self.write_message(str(q[len(q) - 1]))
+
         # elif message == 'request':
         else:
-            print('Server received weight from local: {} '.format(message))
+            # print('Server received weight from local: {} '.format(message))
             q.append(message)
 
     def on_close(self):
         clients.remove(self)
-        logging.info("A client disconnected")
+        logging.info("A client disconnected!!")
 
 class globalAgent():
 

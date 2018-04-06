@@ -26,11 +26,14 @@ from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado import gen
 from tornado.websocket import websocket_connect
 from tornado.websocket import WebSocketClosedError
+from tornado.websocket import StreamClosedError
 import cartpole.config as config
 import tensorflow as tf
 from keras import backend as K
 import gym
 import numpy as np
+import json
+import logging as logger
 
 env = gym.make(config.A3C_ENV['env_name'])
 
@@ -41,10 +44,27 @@ actor, critic = network.build_model(state_size, action_size, 24, 24, True)  # de
 
 
 class localAgent():
+
+        def send_message(self, action, **data):
+                """Sends the message to the connected client
+                """
+                message = {
+                        "action": action,
+                        "data": data
+                }
+                try:
+                        self.write_message(json.dumps(message))
+                except WebSocketClosedError:
+                        logger.warning("WS_CLOSED", "Could Not send Message: " + json.dumps(message))
+                        # Send Websocket Closed Error to Paired Opponent
+                        self.send_pair_message(action="pair-closed")
+                        self.close()
+
         # def __init__(self, global_newtork_ip='localhost', global_newtowrk_port=9044, timeout=5):
         def __init__(self, url, timeout=5):
                 # self.actor, self.critic = network.build_model()
                 self.ws = None
+                self.is_connection_closed = False
 
                 # get size of state and action
                 # self.state_size = config.A3C_ENV['state_size']
@@ -78,8 +98,14 @@ class localAgent():
                 self.episode = 0
 
                 self.ioloop = IOLoop.instance()
+
+                print('1')
                 self.connect()
-                # PeriodicCallback(self.keep_alive, 5000).start()
+                print('2')
+
+                # PeriodicCallback(self.keep_alive, 2000).start()
+
+                print('3')
                 self.ioloop.start()
 
         @gen.coroutine
@@ -103,10 +129,10 @@ class localAgent():
         def connect(self):
                 print("trying to connect")
                 try:
-                        self.ws = yield websocket_connect(self.url)
+                        self.ws = yield websocket_connect(self.url, connect_timeout=9977999)
                         # self.ws = yield websocket_connect(self.url, on_message_callback=self.cb_receive_weight)
                 except Exception as e:
-                        print("connection error : {0}".format(e))
+                        print("connection error : {}".format(e))
                 else:
                         print("connected")
 
@@ -114,16 +140,48 @@ class localAgent():
                                 self.ws = yield websocket_connect(self.url)
                         self.run()
 
+        @gen.coroutine
         def get_weight_from_global_network(self):
                 print('trying to get message from global network!!')
 
                 while True:
-                        if self.ws is None:
+                        if self.is_connection_closed is True:
                                 self.connect()
                         else:
                                 break
-                print('!!!')
+                print('finished to check the connection and send msg to request weight from server!!')
                 self.ws.write_message('send')
+
+                while True:
+
+                        try:
+                                response = yield self.ws.read_message()
+                        except StreamClosedError:
+                                self._abort()
+
+                        # result = future.result(timeout)  # Wait for the result with a timeout
+
+                        if response.done() :
+                                print('weight of global network : {} '.format(f.result()))
+                                # util.set_weight_with_serialized_data()
+                                break
+                #                 print("connection closed")
+                #                 # util.set_weight_with_serialized_data(actor, critic, msg)
+                #                 self.ws = None
+                #         else:
+                #                 print('msg is not null!!!!!!!')
+                #                 util.set_weight_with_serialized_data(actor, critic, msg)
+                #
+
+
+                # util.get_weight_with_serialized_data(actor, critic)
+
+
+
+
+
+
+
 
         # save <s, a ,r> of each step
         # this is used for calculating discounted rewards
@@ -134,22 +192,9 @@ class localAgent():
                 self.actions.append(act)
                 self.rewards.append(reward)
 
-        # @gen.coroutine
+
         def run(self):
                 print('run!!')
-                #util.get_weight_with_serialized_data(actor, critic)
-                # while True:
-                #         msg = yield self.ws.read_message()
-                #         print('weight : {} '.format(msg))
-                #         if msg is None:
-                #                 print("connection closed")
-                #                 # util.set_weight_with_serialized_data(actor, critic, msg)
-                #                 self.ws = None
-                #                 break
-                #         else:
-                #                 print('msg is not null!!!!!!!')
-                #                 util.set_weight_with_serialized_data(actor, critic, msg)
-                #
 
                 while True:
                         state = env.reset()
@@ -168,6 +213,9 @@ class localAgent():
                                         print("episode: ", self.episode, "/ score : ", score)
                                         self.train_episode(score != 500)
                                         break
+                        if self.episode % 3 == 0:
+                                self.get_weight_from_global_network()
+
 
         # update policy network and value network every episode
         def train_episode(self, done):
@@ -187,29 +235,31 @@ class localAgent():
                 print('send trained neural-net weights {}'.format(weight_data))
 
                 try:
-                        self.ws.write_message(weight_data)
+                        self.ws.write_message(weight_data, binary=True)
                 except WebSocketClosedError:
-                        # logger.warning("WS_CLOSED", "Could Not send Message: " + json.dumps(message))
+                        logger.warning("WS_CLOSED", "Could Not send Message: " + weight_data)
                         # Send Websocket Closed Error to Paired Opponent
-                        # self.send_pair_message(action="pair-closed")
                         self.close()
 
                 self.states, self.actions, self.rewards = [], [], []
 
+        def close(self):
+                self.is_connection_closed = True
 
-        # def keep_alive(self):
-        #         # print('keep alive!!! ws : {}'.format(self.ws))
-        #         if self.ws is None:
-        #                 # print('keey_alive : connect')
-        #                 self.connect()
-        #         else:
-        #                 # print('keey_alive : send msg')
-        #                 self.ws.write_message("send")
+        def keep_alive(self):
+
+                if self.is_connection_closed :
+                        print('keey_alive : disconnected')
+                        self.connect()
+                else:
+                        print('keey_alive : send heart bit message to check ')
+                        self.ws.write_message("check")
 
         def get_action(self, state):
                 policy = actor.predict(np.reshape(state, [1, self.state_size]))[0]
                 return np.random.choice(self.action_size, 1, p=policy)[0]
 
 
+
 if __name__ == "__main__":
-        localAgent = localAgent("ws://localhost:9044?local_agent_id=2", timeout=5)
+        localAgent = localAgent("ws://localhost:9044?local_agent_id=2", timeout=50000)
