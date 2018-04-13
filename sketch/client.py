@@ -9,7 +9,6 @@ from threading import Timer
 
 class Client(object):
 
-
     def __init__(self, url, timeout):
 
         # self._url = 'ws://' + ip + ":" + str(port)
@@ -39,13 +38,14 @@ class Client(object):
 
     @gen.coroutine
     def run(self):
+
         while True:
-            msg = yield self.ws.read_message()
-            print(msg)
-            if msg is None:
-                print ("connection closed")
-                self.ws = None
-                break
+            # msg = yield self.ws.read_message()
+            print('check')
+        #     if msg is None:
+        #         print ("connection closed")
+        #         self.ws = None
+        #         break
 
     def _get_gradient(self):
         return random.random()

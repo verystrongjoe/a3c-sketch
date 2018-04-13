@@ -18,7 +18,6 @@ import collections
 from tornado import gen
 
 
-
 import cartpole.util as util
 import cartpole.network as network
 import  gym
@@ -27,7 +26,7 @@ import cartpole.config as config
 define("port", default=9044, help="run on the given port", type=int)
 
 q = collections.deque(maxlen=100)
-clients = []
+clients = {}
 
 env = gym.make(config.A3C_ENV['env_name'])
 
@@ -46,10 +45,12 @@ class Application(tornado.web.Application):
 class WSHandler(tornado.websocket.WebSocketHandler):
 
     def open(self, *args):
+        global clients
+
         self.local_agent_id = self.get_argument("local_agent_id")
         print('self.local_agent_id  : {}'.format(self.local_agent_id))
         # self.stream.set_nodelay(True)
-        clients.append(self)
+        clients[self.local_agent_id] = self
 
     @gen.coroutine
     def on_message(self, message):
@@ -64,15 +65,15 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     if len(q) != 0:
                         break
 
-            print('Server is going to send weight of actor/critic model. Weight : {} '.format(str(q[len(q)-1])))
             # response = yield self.write_message(q[len(q)-1], True)
-            self.write_message(q[len(q) - 1], True)
-            # print('response : {}'.format(response))
-            # self.write_message(str(q[len(q) - 1]))
+            # future = yield self.write_message(q[len(q) - 1], True)
+            # print('future.result : {}'.format(future.result()))
+            self.write_message(str(q[len(q) - 1]))
+            print('Server sent weight of actor/critic model. Weight : {} '.format(str(q[len(q) - 1])))
 
         # elif message == 'request':
         else:
-            # print('Server received weight from local: {} '.format(message))
+            print('Server received weight from local: {} '.format(message))
             q.append(message)
 
     def on_close(self):
