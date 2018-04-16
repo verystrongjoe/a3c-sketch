@@ -36,11 +36,17 @@ This class can be used to do for things below.
 import cartpole.util as util
 import cartpole.network as network
 
-# from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado import gen
+from tornado import escape
+from tornado import gen
+from tornado import httpclient
+from tornado import httputil
 from tornado.websocket import websocket_connect
 from tornado.websocket import WebSocketClosedError
 from tornado.websocket import StreamClosedError
+# from tornado.ioloop import IOLoop, PeriodicCallback
+# from tornado import ioloop
+# from tornado import websocket
 
 import cartpole.config as config
 import tensorflow as tf
@@ -51,13 +57,7 @@ import json
 import logging as logger
 import time
 import asyncio
-
-from tornado import escape
-from tornado import gen
-from tornado import httpclient
-from tornado import httputil
-# from tornado import ioloop
-# from tornado import websocket
+from asyncio import Queue
 
 import functools
 import json
@@ -74,23 +74,55 @@ env = gym.make(config.A3C_ENV['env_name'])
 action_size = env.action_space.n
 state_size = env.observation_space.shape[0]
 
-actor, critic = network.build_model(state_size, action_size, 24, 24, True)  # declaring here is to share this between WShanlder and global agent
+# declaring here is to share this between WShanlder and global agent
+actor, critic = network.build_model(state_size, action_size, 24, 24, True)
+
+async def hello():
+    async with websockets.connect('ws://localhost:9044?local_agent_id=2') as websocket:
+            while True:
+                greeting = await websocket.recv()
+                print("< {}".format(greeting))
 
 
 class localAgent():
 
-        async def producer(self):
-                if self.weight_queue.count() != 0 :
-                        return self.weight_queue.pop()
 
-        async def consumer_hadnler(self, websocket, path):
-                async for message in websocket:
-                        await self.cb_on_message(message)
+        @gen.coroutine
+        async def consumer_handler(self, ws_obj):
+                print('consumer_handler start')
 
-        async def producer_handler(self, websocket, path):
                 while True:
-                        message = await self.producer()
-                        await websocket.send(message)
+                        msg = yield ws_obj.read_message()
+                        if msg is None:
+                                print('wtf!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                                # break
+                        # Do something with msg
+                        print('message 1 : {}'.format(msg))
+                        self.cb_on_message(msg)
+
+                # while True:
+                #         async for message in ws_obj:
+                #                 print('message 1 : {}'.format(message))
+                #                 self.cb_on_message(message)
+                # print('consumer_handler end')
+
+                # while True:
+                #         print('we are waiting!!')
+                #         data = await ws_obj.recv()
+                #         print('data: {}'.format(data))
+                #         self.cb_on_message(data)
+
+        # async def get_item_from_queue(self):
+        #         message = await self.weight_queue.get()
+
+        # async def producer_handler(self, ws_obj):
+        #         print('producer_handler start.')
+        #         while True:
+        #                 print('queue.length : {}'.format(self.weight_queue.qsize()))
+        #                 message = await self.weight_queue.get()
+        #                 await ws_obj.send(message)
+        #                 print('message 2 sent!!! : {}'.format(message))
+        #         print('producer_handler end.')
 
         # async def handler(websocket, path):
         #         consumer_task = asyncio.ensure_future(consumer_handler(websocket))
@@ -184,38 +216,44 @@ class localAgent():
                 self.url = url
                 self.episode = 0
 
-                self.weight_queue = []
+                self.weight_queue = Queue()
 
                 self.ioloop = asyncio.get_event_loop()
 
                 # print('1')
-                self.connect()
-                # print('2')
+                asyncio.get_event_loop().run_until_complete(self.connect())
 
+                # print('2')
                 # PeriodicCallback(self.keep_alive, 2000).start()
 
                 # print('3')
                 # self.ioloop.start()
 
-                # self.client = TestWebSocketClient()
-                # self.client.connect(self.url)
-
-                # time.sleep(5)
-
                 try:
-                        # ioloop.IOLoop.instance().start()
-                        # self.ioloop.start()
-                        consumer_task = asyncio.ensure_future(self.consumer_handler(self.ws))
-                        producer_task = asyncio.ensure_future(self.producer_handler(self.ws))
 
-                        self.ioloop.run_until_complete()
-                        self.ioloop.run_forever()
+                        # fts = [main_task, consumer_task]
+                        # for f in asyncio.as_completed(fts):
+                        #     x = await f
+                        # asyncio.get_event_loop().run_forever()
+
+                        # consumer_task = asyncio.ensure_future(self.consumer_handler(self.ws))
+                        # main_task = asyncio.ensure_future(self.run_main())
+
+                        # self.ioloop.run_until_complete(asyncio.gather(self.consumer_handler(self.ws), self.run_main()))
+                        self.ioloop.run_until_complete(asyncio.gather(hello(), self.run_main()))
+                        self.close()
+
                 except KeyboardInterrupt:
                         self.client.close()
+        # async def run(self):
 
-                print('call for run!!!')
-                self.run()
-
+                # done, pending = await asyncio.wait(
+                #         [consumer_task, main_task],
+                #         return_when=asyncio.FIRST_COMPLETED,
+                # )
+                #
+                # for task in pending:
+                #         task.cancel()
 
 
         # In Policy Gradient, Q function is not available.
@@ -232,24 +270,23 @@ class localAgent():
 
 
         # @gen.coroutine
-
-        async def cb_on_message(self, weight):
+        def cb_on_message(self, weight):
                 print('we get the gradient from server : {}'.format(weight))
                 print('we get the gradient from server : {}'.format(weight))
                 print('we get the gradient from server : {}'.format(weight))
                 util.set_weight_with_serialized_data(actor, critic, weight)
                 return weight
 
-        # @gen.coroutine
-        @asyncio.coroutine
+        # @asyncio.coroutine
+        @gen.coroutine
         def connect(self):
                 print("trying to connect")
                 isConnected = False
 
                 while isConnected is False:
                         try:
-                                # self.ws = yield websocket_connect(self.url, on_message_callback=self.cb_on_message)
-                                self.ws = yield from websocket_connect(self.url)
+                                self.ws = yield websocket_connect(self.url)
+                                # self.ws = yield from websockets.connect(self.url)
                                 isConnected = True
                         except Exception as e:
                                 print("connection error : {}".format(e))
@@ -261,67 +298,19 @@ class localAgent():
                 # while self.ws is None:
                 #         self.ws = yield websocket_connect(self.url, connect_timeout=99999, on_message_callback=cb_on_message)
 
-        # @gen.coroutine
-        def get_weight_from_global_network(self):
+        async def get_weight_from_global_network(self):
                 # print('get_weight_from_global_network :: trying to get message from global network!!')
 
                 while True:
                         if self.is_connection_closed is True:
-                                # print('reconnect!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                                # print('reconnect..')
                                 self.connect()
                         else:
                                 break
-                # print('finished to check the connection and send msg to request weight from server!!')
 
                 # print('get_weight_from_global_network :: send start')
-
-                # self.ws.write_message('send')
-                self.client.write_message('send')
-
+                await self.ws.write_message('send')
                 # print('get_weight_from_global_network :: send end')
-
-                # # self.ws2.send('send')
-                # while True:
-                #     print('trying to get message from global network!!')
-                #     msg = yield self.cb_on_message()
-                #     print('check')
-                #
-                #     if msg is None:
-                #         print("connection closed")
-                #         self.ws = None
-
-
-        # while future.done() is False :
-                #         print('what the!!!!!!!!!!!!!!{}'.future.result())
-
-                # print('what the!!!!!!!!!!!!!!{}'.format(future.done()))
-
-                # while True:
-                #         try:
-                #                 self.ws.read_message(callback=self.cb_receive_weight)
-                #                 # response = yield self.ws.read_message()
-                #         except StreamClosedError:
-                #                 self._abort()
-
-                        # result = future.result(timeout)  # Wait for the result with a timeout
-                        #TODO:  http://masnun.com/2015/11/20/python-asyncio-future-task-and-the-event-loop.html
-                        #TODO:  http://www.tornadoweb.org/en/stable/concurrent.html
-                        #TODO:  https://www.youtube.com/watch?v=IqoYVfoetFg
-                        #TODO:  https://www.youtube.com/watch?v=SkETonolR3U
-
-                        # if response.done():
-                        #         print('weight of global network : {} '.format(f.result()))
-                                # util.set_weight_with_serialized_data()
-                                # break
-                #                 print("connection closed")
-                #                 # util.set_weight_with_serialized_data(actor, critic, msg)
-                #                 self.ws = None
-                #         else:
-                #                 print('msg is not null!!!!!!!')
-                #                 util.set_weight_with_serialized_data(actor, critic, msg)
-                #
-
-                # util.get_weight_with_serialized_data(actor, critic)
 
 
         # save <s, a ,r> of each step
@@ -333,76 +322,32 @@ class localAgent():
                 self.actions.append(act)
                 self.rewards.append(reward)
 
-        @asyncio.coroutine
-        def read_message_from_server(self):
-            print('trying to get message from server!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            print('trying to get message from server!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
-            while True:
-                msg = yield self.ws.read_message()
-                print(msg)
-                future.set_result(msg)
-                if msg is None:
-                    print("connection closed")
-                    self.ws = None
-                    break
-
-            # msg = None
-            # # while True:
-            # msg = await self.ws.read_message()
-            #         # if msg is not None:
-            #         #         break
-            # future.set_result(msg)
-            # self.is_received_msg = True
-            # self.received_msg = msg
-            # print('################ we received {}'.format(msg))
-
-        @gen.coroutine
-        def run(self):
-                # future = asyncio.Future()
-                # asyncio.ensure_future(self.read_message_from_server(future))
-                # asyncio.get_event_loop().run_until_complete(future)
-
+        async def run_main(self):
                 while True:
-                    # print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-                    # if asyncio.get_event_loop().is_closed() :
-                    #     asyncio.ensure_future(self.read_message_from_server(future))
-                    #     asyncio.get_event_loop().run_until_complete(future)
-                    self.run_rl()
-                    # self.read_message_from_server(future)
+                        # print('run!!')
+                        state = env.reset()
+                        score = 0
+                        while True:
+                                action = self.get_action(state)
+                                next_state, reward, done, _ = env.step(action)
+                                score += reward
 
-                    # if self.is_received_msg:
-                    #         util.set_weight_with_serialized_data(actor, critic, self.received_msg)
-                    #         self.is_received_msg = False
-                    #         self.received_msg = None
-                    #         asyncio.get_event_loop().close()
+                                self.memory(state, action, reward)
 
+                                state = next_state
 
-        # @gen.coroutine
-        def run_rl(self):
-                state = env.reset()
-                score = 0
-                while True:
-                        action = self.get_action(state)
-                        next_state, reward, done, _ = env.step(action)
-                        score += reward
-
-                        self.memory(state, action, reward)
-
-                        state = next_state
-
-                        if done:
-                                self.episode += 1
-                                # print("episode: ", self.episode, "/ score : ", score)
-                                self.train_episode(score != 500)
-                                break
-                if self.episode % 3 == 0:
-                        self.get_weight_from_global_network()
-
+                                if done:
+                                        self.episode += 1
+                                        await self.train_episode(score != 500)
+                                        print("episode: ", self.episode, "/ score : ", score)
+                                        break
+                        if self.episode % 3 == 0:
+                                await self.get_weight_from_global_network()
 
 
         # update policy network and value network every episode
-        def train_episode(self, done):
+        async def train_episode(self, done):
                 # print('train_episode')
                 discounted_rewards = self.discount_rewards(self.rewards, done)
 
@@ -419,11 +364,13 @@ class localAgent():
                 # print('send trained neural-net weights {}'.format(weight_data))
 
                 try:
-                        # self.ws.write_message(weight_data, binary=True)
+                        await self.ws.write_message(weight_data, binary=True)
                         # self.client.send(weight_data)
-                        self.weight_queue.append(weight_data)
-
-                        # self.ws2.send(weight_data)
+                        # await self.ws.send(weight_data)
+                        # print('appending to queue : {}'.format(weight_data))
+                        # self.weight_queue.append(weight_data)
+                        # await self.weight_queue.put(weight_data)
+                        # print('queue.length : {}'.format(self.weight_queue.qsize()))
                 except WebSocketClosedError:
                         logger.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
                         # Send Websocket Closed Error to Paired Opponent
@@ -451,5 +398,6 @@ class localAgent():
 
 
 if __name__ == "__main__":
-        localAgent = localAgent("ws://localhost:9044?local_agent_id=2", timeout=50000)
+        # localAgent = localAgent("ws://localhost:9044?local_agent_id=2", timeout=50000)
+        localAgent = localAgent("ws://localhost:9044?local_agent_id=2")
 

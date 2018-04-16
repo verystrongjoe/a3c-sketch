@@ -1,27 +1,43 @@
-
 import asyncio
+import datetime
 import random
+import websockets
 
+async def time(websocket, path):
+    while True:
+        now = datetime.datetime.utcnow().isoformat() + 'Z'
+        await websocket.send(now)
+        await asyncio.sleep(random.random() * 3)
 
-async def lazy_greet(msg, delay=1):
-    print(msg, "will be displayed in", delay, "seconds")
-    await asyncio.sleep(delay)
-    return msg.upper()
+start_server = websockets.serve(time, '127.0.0.1', 5678)
 
+asyncio.get_event_loop().run_until_complete(start_server)
+asyncio.get_event_loop().run_forever()
 
-async def main():
-    messages = ['hello', 'world', 'apple', 'banana', 'cherry']
-    fts = [asyncio.ensure_future(lazy_greet(m, random.randrange(1, 5)))
-           for m in messages]
-    for f in asyncio.as_completed(fts):
-        x = await f
-        print(x)
-
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-loop.run_forever()
-loop.close()
+#
+# import asyncio
+# import random
+#
+#
+# async def lazy_greet(msg, delay=1):
+#     print(msg, "will be displayed in", delay, "seconds")
+#     await asyncio.sleep(delay)
+#     return msg.upper()
+#
+#
+# async def main():
+#     messages = ['hello', 'world', 'apple', 'banana', 'cherry']
+#     fts = [asyncio.ensure_future(lazy_greet(m, random.randrange(1, 5)))
+#            for m in messages]
+#     for f in asyncio.as_completed(fts):
+#         x = await f
+#         print(x)
+#
+#
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(main())
+# loop.run_forever()
+# loop.close()
 
 
 

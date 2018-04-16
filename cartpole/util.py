@@ -53,9 +53,10 @@ def get_weight_with_serialized_data(model_actor, model_critic):
     # return d
 
 def set_weight_with_serialized_data(model_actor, model_critic, d):
+
     dict_pair = pickle.loads(d)
 
-    # print(dict_pair)
+    print('local network completed to synchronized with global network {} '.format(dict_pair))
 
     # for layer_name in dict_pair['actor'].keys():
     # for layer_name in dict_pair[0].keys():
