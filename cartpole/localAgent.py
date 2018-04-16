@@ -77,29 +77,31 @@ state_size = env.observation_space.shape[0]
 actor, critic = network.build_model(state_size, action_size, 24, 24, True)  # declaring here is to share this between WShanlder and global agent
 
 
-
 class localAgent():
+
+        async def producer(self):
+                if self.weight_queue.count() != 0 :
+                        return self.weight_queue.pop()
 
         async def consumer_hadnler(self, websocket, path):
                 async for message in websocket:
                         await self.cb_on_message(message)
 
-        async def producer_handler(websocket, path):
+        async def producer_handler(self, websocket, path):
                 while True:
-                        message = await producer()
+                        message = await self.producer()
                         await websocket.send(message)
 
-
-        async def handler(websocket, path):
-                consumer_task = asyncio.ensure_future(consumer_handler(websocket))
-                producer_task = asyncio.ensure_future(producer_handler(websocket))
-                done, pending = await asyncio.wait(
-                        [consumer_task, producer_task],
-                        return_when=asyncio.FIRST_COMPLETED,
-                )
-
-                for task in pending:
-                        task.cancel()
+        # async def handler(websocket, path):
+        #         consumer_task = asyncio.ensure_future(consumer_handler(websocket))
+        #         producer_task = asyncio.ensure_future(producer_handler(websocket))
+        #         done, pending = await asyncio.wait(
+        #                 [consumer_task, producer_task],
+        #                 return_when=asyncio.FIRST_COMPLETED,
+        #         )
+        #
+        #         for task in pending:
+        #                 task.cancel()
 
         # def on_open(self, ws):
         #         print("### Initiating new websocket connection ###")
@@ -182,6 +184,8 @@ class localAgent():
                 self.url = url
                 self.episode = 0
 
+                self.weight_queue = []
+
                 self.ioloop = asyncio.get_event_loop()
 
                 # print('1')
@@ -201,7 +205,9 @@ class localAgent():
                 try:
                         # ioloop.IOLoop.instance().start()
                         # self.ioloop.start()
-                        asyncio.ensure_future()
+                        consumer_task = asyncio.ensure_future(self.consumer_handler(self.ws))
+                        producer_task = asyncio.ensure_future(self.producer_handler(self.ws))
+
                         self.ioloop.run_until_complete()
                         self.ioloop.run_forever()
                 except KeyboardInterrupt:
@@ -394,6 +400,7 @@ class localAgent():
                         self.get_weight_from_global_network()
 
 
+
         # update policy network and value network every episode
         def train_episode(self, done):
                 # print('train_episode')
@@ -413,7 +420,9 @@ class localAgent():
 
                 try:
                         # self.ws.write_message(weight_data, binary=True)
-                        self.client.send(weight_data)
+                        # self.client.send(weight_data)
+                        self.weight_queue.append(weight_data)
+
                         # self.ws2.send(weight_data)
                 except WebSocketClosedError:
                         logger.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
