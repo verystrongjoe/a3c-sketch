@@ -40,12 +40,12 @@ class Client(object):
     def run(self):
 
         while True:
-            # msg = yield self.ws.read_message()
-            print('check')
-        #     if msg is None:
-        #         print ("connection closed")
-        #         self.ws = None
-        #         break
+            msg = yield self.ws.read_message()
+            print('msg : {}'.format(msg))
+            if msg is None:
+                print ("connection closed")
+                self.ws = None
+                break
 
     def _get_gradient(self):
         return random.random()

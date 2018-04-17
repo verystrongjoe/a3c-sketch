@@ -82,7 +82,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
         # elif message == 'request':
         else:
-            # print('Server received weight from local: {} '.format(message))
+            print('Server received weight from local: {} '.format(message))
             q.append(message)
 
     def on_close(self):
@@ -99,29 +99,28 @@ class globalAgent():
         # first weight of two models must be appended to the queue
         q.append(util.get_weight_with_serialized_data(actor, critic))
 
-        # tornado.options.parse_command_line()
-        # app = Application()
-        # if port is None :
-        #     app.listen(options.port)
-        # else:
-        #     app.listen(port)
+        tornado.options.parse_command_line()
+        app = Application()
+        if port is None :
+            app.listen(options.port)
+        else:
+            app.listen(port)
 
-        start_server = websockets.serve(hello, 'localhost', 9044, max_size=2**20)
+        # start_server = websockets.serve(hello, 'localhost', 9044)
+        #
+        # asyncio.get_event_loop().run_until_complete(start_server)
+        # asyncio.get_event_loop().run_forever()
 
-        asyncio.get_event_loop().run_until_complete(start_server)
-        asyncio.get_event_loop().run_forever()
+        tornado.ioloop.IOLoop.instance().start()
 
 
-        # tornado.ioloop.IOLoop.instance().start()
-
-
-async def hello(websocket, path):
-    name = await websocket.recv()
-    print("< {}".format(name))
-
-    # greeting = "{}".format(name)
-    await websocket.send(name)
-    print("> {}".format(name))
+# async def hello(websocket, path):
+#     name = await websocket.recv()
+#     print("< {}".format(name))
+#
+#     # greeting = "{}".format(name)
+#     await websocket.send(name)
+#     print("> {}".format(name))
 
 
 if __name__ =="__main__":

@@ -44,7 +44,7 @@ from tornado import httputil
 from tornado.websocket import websocket_connect
 from tornado.websocket import WebSocketClosedError
 from tornado.websocket import StreamClosedError
-# from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.ioloop import IOLoop, PeriodicCallback
 # from tornado import ioloop
 # from tornado import websocket
 
@@ -77,22 +77,31 @@ state_size = env.observation_space.shape[0]
 # declaring here is to share this between WShanlder and global agent
 actor, critic = network.build_model(state_size, action_size, 24, 24, True)
 
-async def hello():
-    async with websockets.connect('ws://localhost:9044?local_agent_id=2') as websocket:
-            while True:
-                greeting = await websocket.recv()
-                print("< {}".format(greeting))
+# async def hello():
+#         print('!!!')
+#         async with websockets.connect('ws://localhost:9044?local_agent_id=2') as websocket:
+#             while True:
+#                 greeting = await websocket.recv()
+#                 print("< {}".format(greeting))
 
 
 class localAgent():
 
+        # @gen.coroutine
+        # def run(self):
+        #         while True:
+        #                 msg = yield self.ws.read_message()
+        #                 if msg is None:
+        #                         print
+        #                         "connection closed"
+        #                         self.ws = None
+        #                         break
 
-        @gen.coroutine
         async def consumer_handler(self, ws_obj):
                 print('consumer_handler start')
 
                 while True:
-                        msg = yield ws_obj.read_message()
+                        msg = await ws_obj.read_message()
                         if msg is None:
                                 print('wtf!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                                 # break
@@ -218,18 +227,19 @@ class localAgent():
 
                 self.weight_queue = Queue()
 
-                self.ioloop = asyncio.get_event_loop()
-
+                # self.ioloop = asyncio.get_event_loop()
+                self.ioloop = IOLoop.instance()
+                self.connect()
                 # print('1')
-                asyncio.get_event_loop().run_until_complete(self.connect())
+                # asyncio.get_event_loop().run_until_complete(self.connect())
 
                 # print('2')
                 # PeriodicCallback(self.keep_alive, 2000).start()
 
                 # print('3')
-                # self.ioloop.start()
+                self.ioloop.start()
 
-                try:
+                # try:
 
                         # fts = [main_task, consumer_task]
                         # for f in asyncio.as_completed(fts):
@@ -240,11 +250,11 @@ class localAgent():
                         # main_task = asyncio.ensure_future(self.run_main())
 
                         # self.ioloop.run_until_complete(asyncio.gather(self.consumer_handler(self.ws), self.run_main()))
-                        self.ioloop.run_until_complete(asyncio.gather(hello(), self.run_main()))
-                        self.close()
+                        # self.ioloop.run_until_complete(self.run_main())
+                        # self.close()
 
-                except KeyboardInterrupt:
-                        self.client.close()
+                # except KeyboardInterrupt:
+                #         self.client.close()
         # async def run(self):
 
                 # done, pending = await asyncio.wait(
@@ -275,9 +285,8 @@ class localAgent():
                 print('we get the gradient from server : {}'.format(weight))
                 print('we get the gradient from server : {}'.format(weight))
                 util.set_weight_with_serialized_data(actor, critic, weight)
-                return weight
+                # return weight
 
-        # @asyncio.coroutine
         @gen.coroutine
         def connect(self):
                 print("trying to connect")
@@ -285,7 +294,7 @@ class localAgent():
 
                 while isConnected is False:
                         try:
-                                self.ws = yield websocket_connect(self.url)
+                                self.ws = yield websocket_connect(self.url, on_message_callback=self.cb_on_message)
                                 # self.ws = yield from websockets.connect(self.url)
                                 isConnected = True
                         except Exception as e:
@@ -294,11 +303,12 @@ class localAgent():
 
                 # self.initiate()
                 print("connected")
-
+                self.run()
                 # while self.ws is None:
                 #         self.ws = yield websocket_connect(self.url, connect_timeout=99999, on_message_callback=cb_on_message)
 
-        async def get_weight_from_global_network(self):
+        @gen.coroutine
+        def get_weight_from_global_network(self):
                 # print('get_weight_from_global_network :: trying to get message from global network!!')
 
                 while True:
@@ -309,9 +319,9 @@ class localAgent():
                                 break
 
                 # print('get_weight_from_global_network :: send start')
-                await self.ws.write_message('send')
+                # await self.ws.write_message('send')
+                yield self.ws.write_message('send')
                 # print('get_weight_from_global_network :: send end')
-
 
         # save <s, a ,r> of each step
         # this is used for calculating discounted rewards
@@ -322,8 +332,8 @@ class localAgent():
                 self.actions.append(act)
                 self.rewards.append(reward)
 
-
-        async def run_main(self):
+        @gen.coroutine
+        def run(self):
                 while True:
                         # print('run!!')
                         state = env.reset()
@@ -339,15 +349,15 @@ class localAgent():
 
                                 if done:
                                         self.episode += 1
-                                        await self.train_episode(score != 500)
+                                        self.train_episode(score != 500)
                                         print("episode: ", self.episode, "/ score : ", score)
                                         break
                         if self.episode % 3 == 0:
-                                await self.get_weight_from_global_network()
-
+                                self.get_weight_from_global_network()
 
         # update policy network and value network every episode
-        async def train_episode(self, done):
+        @gen.coroutine
+        def train_episode(self, done):
                 # print('train_episode')
                 discounted_rewards = self.discount_rewards(self.rewards, done)
 
@@ -364,7 +374,7 @@ class localAgent():
                 # print('send trained neural-net weights {}'.format(weight_data))
 
                 try:
-                        await self.ws.write_message(weight_data, binary=True)
+                        yield self.ws.write_message(weight_data, binary=True)
                         # self.client.send(weight_data)
                         # await self.ws.send(weight_data)
                         # print('appending to queue : {}'.format(weight_data))
@@ -395,9 +405,6 @@ class localAgent():
                 policy = actor.predict(np.reshape(state, [1, self.state_size]))[0]
                 return np.random.choice(self.action_size, 1, p=policy)[0]
 
-
-
 if __name__ == "__main__":
         # localAgent = localAgent("ws://localhost:9044?local_agent_id=2", timeout=50000)
         localAgent = localAgent("ws://localhost:9044?local_agent_id=2")
-
