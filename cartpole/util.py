@@ -5,7 +5,7 @@ from keras.layers import Dense, Activation
 import pickle
 import threading
 from copy import deepcopy
-
+import logging
 
 def get_model_for_test() :
     model = Sequential()
@@ -56,7 +56,7 @@ def set_weight_with_serialized_data(model_actor, model_critic, d):
 
     dict_pair = pickle.loads(d)
 
-    print('local network completed to synchronized with global network {} '.format(dict_pair))
+    logging.info('local network completed to synchronized with global network {} '.format(dict_pair))
 
     # for layer_name in dict_pair['actor'].keys():
     # for layer_name in dict_pair[0].keys():
@@ -65,6 +65,7 @@ def set_weight_with_serialized_data(model_actor, model_critic, d):
     # # for layer_name in dict_pair['critic'].keys():
     # for layer_name in dict_pair[1].keys():
     #     model_critic.get_layer(layer_name).set_weights(dict_pair[1][layer_name])
+
     model_actor.set_weights(dict_pair[0])
     model_critic.set_weights(dict_pair[1])
 

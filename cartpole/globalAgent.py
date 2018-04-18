@@ -57,30 +57,17 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
     @gen.coroutine
     def on_message(self, message):
-        # self.write_message(u"You said: " + message)
-        # print("on_message: {}".format(message))
         # logging.info("on_message: {}".format(message))
 
         if message == 'send':
-            # print("on_message: {}".format(message))
-            # if len(q) == 0:
-            #     #raise RuntimeError("No weight in queue")
-            #     while True:
-            #         if len(q) != 0:
-            #             break
+            if len(q) == 0:
+                #raise RuntimeError("No weight in queue")
+                while True:
+                    if len(q) != 0:
+                        break
 
-            # response = yield self.write_message(q[len(q)-1], True)
-            # future = yield self.write_message(q[len(q) - 1], True)
-            # print('future.result : {}'.format(future.result()))
-            # yield from self.write_message(q[len(q) - 1], binary=True)
-            # task = yield self.write_message(q[len(q) - 1])
-
-            future = yield self.write_message(q[len(q) - 1])
-
+            yield self.write_message(q[len(q) - 1], binary=True)
             print('Server sent weight of actor/critic model. Weight : {} '.format(str(q[len(q) - 1])))
-            # print('Server sent and got result {}'.format(task))
-
-        # elif message == 'request':
         else:
             print('Server received weight from local: {} '.format(message))
             q.append(message)
@@ -106,22 +93,7 @@ class globalAgent():
         else:
             app.listen(port)
 
-        # start_server = websockets.serve(hello, 'localhost', 9044)
-        #
-        # asyncio.get_event_loop().run_until_complete(start_server)
-        # asyncio.get_event_loop().run_forever()
-
         tornado.ioloop.IOLoop.instance().start()
-
-
-# async def hello(websocket, path):
-#     name = await websocket.recv()
-#     print("< {}".format(name))
-#
-#     # greeting = "{}".format(name)
-#     await websocket.send(name)
-#     print("> {}".format(name))
-
 
 if __name__ =="__main__":
     globalAgent()
