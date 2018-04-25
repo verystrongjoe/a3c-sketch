@@ -86,9 +86,11 @@ class A3CAgent:
         actor_loss = loss + 0.01*entropy
 
         optimizer = Adam(lr=self.actor_lr)
+
         updates = optimizer.get_updates(self.actor.trainable_weights, [], actor_loss)
         train = K.function([self.actor.input, action, advantages], [], updates=updates)
-        return train
+
+        return train #, optimizer.get_gradients(actor_loss, self.actor.trainable_weights)
 
     # make loss function for Value approximation
     def critic_optimizer(self):

@@ -182,7 +182,6 @@ class localAgent():
                         if self.episode % 3 == 0:
                                 yield self.get_weight_from_global_network()
 
-
                         while True:
                                 action = self.get_action(state)
                                 next_state, reward, done, _ = env.step(action)

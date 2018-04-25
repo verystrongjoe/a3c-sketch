@@ -47,7 +47,6 @@ def get_weight_with_serialized_data(model_actor, model_critic):
     model_critic_weight = model_critic.get_weights()
 
 
-
     # return model_actor_weight, model_critic_weight
     return pickle.dumps((model_actor_weight, model_critic_weight))
     # return d

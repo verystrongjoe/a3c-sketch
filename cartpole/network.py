@@ -67,6 +67,41 @@ def actor_optimizer(actor, actor_learning_rate, action_size):
     train = K.function([actor.input, action, advantages], [], updates=updates)
     return train
 
+
+def get_gradients_from_actor(actor, actor_lr, action_size):
+    action = K.placeholder(shape=(None, action_size))
+    advantages = K.placeholder(shape=(None,))
+
+    policy = actor.output
+
+    good_prob = K.sum(action * policy, axis=1)
+    eligibility = K.log(good_prob + 1e-10) * K.stop_gradient(advantages)
+    loss = -K.sum(eligibility)
+
+    entropy = K.sum(policy * K.log(policy + 1e-10), axis=1)
+
+    actor_loss = loss + 0.01 * entropy
+
+    optimizer = Adam(lr=actor_lr)
+
+    # updates = optimizer.get_updates(self.actor.trainable_weights, [], actor_loss)
+    # train = K.function([self.actor.input, action, advantages], [], updates=updates)
+
+    return optimizer.get_gradients(actor_loss, actor.trainable_weights)
+
+def get_gradients_from_critic(critic, critic_lr):
+    discounted_reward = K.placeholder(shape=(None, ))
+
+    value = critic.output
+
+    actor_loss = K.mean(K.square(discounted_reward - value))
+
+    optimizer = Adam(lr=critic_lr)
+    # updates = optimizer.get_updates(self.critic.trainable_weights, [], actor_loss)
+    # train = K.function([self.critic.input, discounted_reward], [], updates=updates)
+
+    return optimizer.get_gradients(actor_loss, critic.trainable_weights)
+
 def save_model(actor, critic, name):
     actor.save_weights(name + "_actor.h5")
     critic.save_weights(name + "_critic.h5")
