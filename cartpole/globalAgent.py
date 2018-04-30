@@ -66,6 +66,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     if len(q) != 0:
                         break
 
+            #TODO : in here, we need to change its data as weight
             yield self.write_message(q[len(q) - 1], binary=True)
             print('Server sent weight of actor/critic model. Weight : {} '.format(str(q[len(q) - 1])))
         else:

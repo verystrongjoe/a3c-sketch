@@ -6,6 +6,7 @@ import pickle
 import threading
 from copy import deepcopy
 import logging
+import cartpole.network as network
 
 def get_model_for_test() :
     model = Sequential()
@@ -50,6 +51,11 @@ def get_weight_with_serialized_data(model_actor, model_critic):
     # return model_actor_weight, model_critic_weight
     return pickle.dumps((model_actor_weight, model_critic_weight))
     # return d
+
+def get_gradients_with_serialized_data(model_actor, model_critic) :
+    return pickle.dumps((network.get_gradients_from_actor() , model_critic_weight))
+
+
 
 def set_weight_with_serialized_data(model_actor, model_critic, d):
 

@@ -215,6 +215,7 @@ class localAgent():
                 weight_data = util.get_weight_with_serialized_data(actor, critic)
                 # print('send trained neural-net weights {}'.format(weight_data))
 
+
                 try:
                         yield self.ws.write_message(weight_data, binary=True)
                         # print('queue.length : {}'.format(self.weight_queue.qsize()))

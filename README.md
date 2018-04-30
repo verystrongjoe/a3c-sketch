@@ -22,6 +22,10 @@ run cartpole/localAgent.py
 ![archi](http://cfile27.uf.tistory.com/image/2225DE4C58A334B62D6E18)
 
  
+## Future Plan
+1. Unlike multi-thread model, it can not share global parameters mentioned in Supplementary Material Chapter 7.  But I want to add
+  
+ 
 ## Reference
 [a3c architecture](http://ishuca.tistory.com/400) 
 
