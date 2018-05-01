@@ -16,18 +16,24 @@ import tornado.websocket
 from tornado.options import define, options
 import collections
 from tornado import gen
-import websockets
-
 import cartpole.util as util
 import cartpole.network as network
 import  gym
 import cartpole.config as config
-
+#import websockets
 import asyncio
+from threading import Thread
+from queue import LifoQueue # use manager to use this lifoqueue in multiprocessing! http://hamait.tistory.com/755
+from asyncio import Queue
+
 
 define("port", default=9044, help="run on the given port", type=int)
 
 q = collections.deque(maxlen=100)
+# grads_q = collections.deque(maxlen=3)
+grads_q = Queue(maxsize=100) # its parameter means queue size including buffer for multiprocessing to have mistake of calculating queue size.
+weight_q = LifoQueue(maxsize=10) # its parameter means queue size to send to its local agents
+
 clients = {}
 
 env = gym.make(config.A3C_ENV['env_name'])
@@ -47,6 +53,15 @@ class Application(tornado.web.Application):
 
 class WSHandler(tornado.websocket.WebSocketHandler):
 
+    def __init__(self, application, request, **kwargs):
+        super(WSHandler, self).__init__(application, request, **kwargs)
+        self.ws_connection = None
+        self.close_code = None
+        self.close_reason = None
+        self.stream = None
+        self._on_close_called = False
+        self.q = asyncio.Queue(5)
+
     def open(self, *args):
         global clients
 
@@ -54,6 +69,28 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         print('self.local_agent_id  : {}'.format(self.local_agent_id))
         # self.stream.set_nodelay(True)
         clients[self.local_agent_id] = self
+
+    @gen.coroutine
+    def generating_weight(q):
+        # this figure means to a min threshold to start calculating mean of graidents
+
+        while True:
+            cnt = 0
+            sum = 0
+            while True:
+                i = yield grads_q.get()
+                cnt += 1
+                sum += i
+                if i > 10:
+                    print(sum)
+                    break
+
+    @gen.coroutine
+    def sending_gradient():
+        i = 0
+        while True:
+            yield grads_q.put(i)
+            i = i + 1
 
     @gen.coroutine
     def on_message(self, message):
@@ -86,6 +123,7 @@ class globalAgent():
 
         # first weight of two models must be appended to the queue
         q.append(util.get_weight_with_serialized_data(actor, critic))
+        # grads_q.append(util.get_weight_with_serialized_data(actor, critic))
 
         tornado.options.parse_command_line()
         app = Application()
@@ -94,7 +132,37 @@ class globalAgent():
         else:
             app.listen(port)
 
-        tornado.ioloop.IOLoop.instance().start()
+        # tornado.ioloop.IOLoop.instance().start()
+        tornado.ioloop.IOLoop.instance().run_sync(sending_gradient())
+
+
+def process_global_agent(q, ip=None, port=None) :
+    # first weight of two models must be appended to the queue
+    q.append(util.get_weight_with_serialized_data(actor, critic))
+
+    tornado.options.parse_command_line()
+    app = Application()
+    if port is None:
+        app.listen(options.port)
+    else:
+        app.listen(port)
+
+    tornado.ioloop.IOLoop.instance().start()
+
+
 
 if __name__ =="__main__":
+
+    # p = Thread(target=generating_weight, args=(grads_q,))
+    # p.start()
+
     globalAgent()
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete()
+    # loop.close()
+
+
+
+
+
+

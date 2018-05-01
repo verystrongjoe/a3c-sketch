@@ -2,19 +2,16 @@ from keras.layers import Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
 from keras import backend as K
+
 '''
 This nework is for a3c network which can be either global or local network.
 This network is consist of two network, advantage and policy network.
 '''
-
 # _state_size = 20
 # _action_size = 20
 # _hidden1 = 20
 # _hidden2 = 20
-
-def build_model(state_size,
-                action_size,hidden1,
-                hidden2, verbose=False):
+def build_model(state_size, action_size, hidden1, hidden2, verbose=False) :
 
     state = Input(batch_shape=(None, state_size))
     shared = Dense(hidden1, input_dim=state_size, activation='relu')(state)
@@ -48,7 +45,6 @@ def critic_optimizer(critic, critic_learning_rate):
     return train
 
 def actor_optimizer(actor, actor_learning_rate, action_size):
-
     action = K.placeholder(shape=(None, action_size))
     advantages = K.placeholder(shape=(None,))
 

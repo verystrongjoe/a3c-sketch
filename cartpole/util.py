@@ -7,6 +7,8 @@ import threading
 from copy import deepcopy
 import logging
 import cartpole.network as network
+from cartpole.optimizer import SGD_custom
+import keras.backend as K
 
 def get_model_for_test() :
     model = Sequential()
@@ -52,9 +54,22 @@ def get_weight_with_serialized_data(model_actor, model_critic):
     return pickle.dumps((model_actor_weight, model_critic_weight))
     # return d
 
-def get_gradients_with_serialized_data(model_actor, model_critic) :
-    return pickle.dumps((network.get_gradients_from_actor() , model_critic_weight))
+def get_gradients_with_serialized_data(model_actor, actor_lr, action_size, model_critic, critic_lr) :
+    return pickle.dumps((
+        network.get_gradients_from_actor(model_actor, actor_lr, action_size),
+        network.get_gradients_from_critic(model_critic, critic_lr)))
 
+def apply_graidents_with_serialized_data(model_actor, model_critic, d) :
+
+    pair = pickle.loads(d)
+    grads_actor = pair[0]
+    grads_critic = pair[1]
+
+    y_true = K.placeholder(shape=(None, 1))
+    loss = K.mean(model.loss_functions[0](y_true, model.output))
+    grad_ops = model.optimizer.get_gradients(loss=loss, params=model.trainable_weights)
+    fun = K.function([model.input, y_true], grad_ops)
+    grad = fun([X, Y])
 
 
 def set_weight_with_serialized_data(model_actor, model_critic, d):
