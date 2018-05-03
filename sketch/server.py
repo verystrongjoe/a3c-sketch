@@ -9,6 +9,8 @@ import tornado.web
 import tornado.websocket
 from tornado.options import define, options
 import collections
+from tornado import gen
+
 
 define("port", default=9045, help="run on the given port", type=int)
 
@@ -25,7 +27,7 @@ q = collections.deque(maxlen=100)
 
 class Application(tornado.web.Application):
     def __init__(self):
-        handlers = [(r"/get", WebSocketHandler),
+        handlers = [(r"/", WebSocketHandler),
                     (r"/send", WebSocketHandler)
                     ]
 
@@ -42,6 +44,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         self.stream.set_nodelay(True)
         clients[self.local_agent_id] = {"local_agent_id": self.local_agent_id, "object": self}
 
+    @gen.coroutine
     def on_message(self, message):
         """
         when we receive some message we want some message handler..
@@ -63,6 +66,24 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         pass
         # if self.id in clients:
         #     del clients[self.id]
+
+
+    @gen.coroutine
+    def consumer():
+        while True:
+            item = yield q.get()
+            try:
+                print('Doing work on %s' % item)
+                yield gen.sleep(0.01)
+            finally:
+                q.task_done()
+
+    @gen.coroutine
+    def producer():
+        for item in range(5):
+            yield q.put(item)
+            print('Put %s' % item)
+
 
 if __name__ == "__main__":
 

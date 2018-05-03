@@ -85,4 +85,4 @@ class Client(object):
 
 
 if __name__ == "__main__":
-    client = Client("ws://localhost:9044?local_agent_id=2", 5)
+    client = Client("ws://localhost:9045?local_agent_id=2", 5)

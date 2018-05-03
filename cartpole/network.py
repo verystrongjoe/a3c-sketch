@@ -1,7 +1,8 @@
 from keras.layers import Dense, Input
 from keras.models import Model
-from keras.optimizers import Adam
+# from keras.optimizers import Adam
 from keras import backend as K
+from cartpole.optimizer import SGD_custom
 
 '''
 This nework is for a3c network which can be either global or local network.
@@ -39,7 +40,7 @@ def critic_optimizer(critic, critic_learning_rate):
     value = critic.output
     loss = K.mean(K.square(discounted_reward - value))
 
-    optimizer = Adam(lr=critic_learning_rate)
+    optimizer = SGD_custom(lr=critic_learning_rate)
     update = optimizer.get_updates(critic.trainable_weights, [], loss)
     train = K.function([critic.input, discounted_reward], [], updates=update)
     return train
@@ -58,7 +59,7 @@ def actor_optimizer(actor, actor_learning_rate, action_size):
 
     actor_loss = loss + 0.01 * entropy
 
-    optimizer = Adam(lr=actor_learning_rate)
+    optimizer = SGD_custom(lr=actor_learning_rate)
     updates = optimizer.get_updates(actor.trainable_weights, [], actor_loss)
     train = K.function([actor.input, action, advantages], [], updates=updates)
     return train
@@ -78,7 +79,7 @@ def get_gradients_from_actor(actor, actor_lr, action_size):
 
     actor_loss = loss + 0.01 * entropy
 
-    optimizer = Adam(lr=actor_lr)
+    optimizer = SGD_custom(lr=actor_lr)
 
     # updates = optimizer.get_updates(self.actor.trainable_weights, [], actor_loss)
     # train = K.function([self.actor.input, action, advantages], [], updates=updates)
@@ -92,7 +93,7 @@ def get_gradients_from_critic(critic, critic_lr):
 
     actor_loss = K.mean(K.square(discounted_reward - value))
 
-    optimizer = Adam(lr=critic_lr)
+    optimizer = SGD_custom(lr=critic_lr)
     # updates = optimizer.get_updates(self.critic.trainable_weights, [], actor_loss)
     # train = K.function([self.critic.input, discounted_reward], [], updates=updates)
 

@@ -106,6 +106,12 @@ if __name__ == "__main__" :
     # output으로 나오는 trainable_weights를 통해 모델이 학습되는 것을 확인 가능
     fun(grad)
 
+
+
+
+
+
+
     # cf) compare updates and gradient
     y_true = K.placeholder(shape=(None, 1))
     loss = K.mean(model.loss_functions[0](y_true, model.output))

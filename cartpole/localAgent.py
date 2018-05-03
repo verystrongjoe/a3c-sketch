@@ -116,7 +116,6 @@ class localAgent():
                 # PeriodicCallback(self.keep_alive, 2000).start()
                 self.ioloop.start()
 
-
         # In Policy Gradient, Q function is not available.
         # Instead agent uses sample returns for evaluating policy
         def discount_rewards(self, rewards, done=True):
@@ -215,7 +214,6 @@ class localAgent():
                 weight_data = util.get_weight_with_serialized_data(actor, critic)
                 # print('send trained neural-net weights {}'.format(weight_data))
 
-
                 try:
                         yield self.ws.write_message(weight_data, binary=True)
                         # print('queue.length : {}'.format(self.weight_queue.qsize()))
@@ -240,6 +238,7 @@ class localAgent():
         def get_action(self, state):
                 policy = actor.predict(np.reshape(state, [1, self.state_size]))[0]
                 return np.random.choice(self.action_size, 1, p=policy)[0]
+
 
 if __name__ == "__main__":
         localAgent = localAgent("ws://localhost:9044?local_agent_id=2", timeout=50000)
