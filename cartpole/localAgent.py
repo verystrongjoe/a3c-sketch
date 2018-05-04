@@ -32,6 +32,7 @@ This class can be used to do for things below.
 '''
 
 # import threading
+import binascii
 
 import cartpole.util as util
 import cartpole.network as network
@@ -56,6 +57,7 @@ from asyncio import Queue
 import functools
 import json
 import time
+import pickle
 
 APPLICATION_JSON = 'application/json'
 DEFAULT_CONNECT_TIMEOUT = 60
@@ -100,8 +102,12 @@ class localAgent():
                 # self.actor, self.critic = network.build_model()
 
                 # method for training actor and critic network
-                self.optimizer = [network.actor_optimizer(actor, self.actor_lr, self.action_size),
-                                  network.critic_optimizer(critic, self.critic_lr)]
+                # self.optimizer = [network.actor_optimizer(actor, self.actor_lr, self.action_size),
+                #                   network.critic_optimizer(critic, self.critic_lr)]
+
+                self.get_gradient_functions = [
+                        network.get_gradients_from_actor(actor), network.get_gradients_from_critic(critic)
+                ]
 
                 self.sess = tf.InteractiveSession()
                 K.set_session(self.sess)
@@ -130,7 +136,8 @@ class localAgent():
 
         @gen.coroutine
         def cb_on_message(self, weight):
-                #logger.debug('we get the gradient from server : {}'.format(weight))
+                # logger.debug('we get the gradient from server : {}'.format(weight))
+                print('we get the gradient from server : {}'.format(weight))
                 util.set_weight_with_serialized_data(actor, critic, weight)
 
         @gen.coroutine
@@ -192,13 +199,15 @@ class localAgent():
 
                                 if done:
                                         self.episode += 1
-                                        self.train_episode(score != 500)
+                                        # self.train_episode(score != 500)
+                                        self.send_gradient_to_global_agent(score != 500)
                                         print("episode: ", self.episode, "/ score : ", score)
                                         break
 
         # update policy network and value network every episode
         @gen.coroutine
-        def train_episode(self, done):
+        def send_gradient_to_global_agent(self, done):
+        # def train_episode(self, done):
                 # print('train_episode')
                 discounted_rewards = self.discount_rewards(self.rewards, done)
 
@@ -207,18 +216,23 @@ class localAgent():
 
                 advantages = discounted_rewards - values
 
-                self.optimizer[0]([self.states, self.actions, advantages])
-                self.optimizer[1]([self.states, discounted_rewards])
+                grads_actor = self.get_gradient_functions[0]([self.states, self.actions, advantages])
+                grads_critic = self.get_gradient_functions[1]([self.states, discounted_rewards])
 
                 ### send trained neuralnet weights
-                weight_data = util.get_weight_with_serialized_data(actor, critic)
+                # weight_data = util.get_weight_with_serialized_data(actor, critic)
                 # print('send trained neural-net weights {}'.format(weight_data))
+                # print('actor : {} , critic : {}'.format(grads_actor, grads_critic))
 
                 try:
-                        yield self.ws.write_message(weight_data, binary=True)
+                        # yield self.ws.write_message(weight_data, binary=True)
+                        grads = (grads_actor,grads_critic)
+                        # print('grads : {}'.format(grads))
+                        yield self.ws.write_message(pickle.dumps(grads), binary=True)
                         # print('queue.length : {}'.format(self.weight_queue.qsize()))
                 except WebSocketClosedError:
-                        logger.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
+                        # logger.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
+                        logger.warning("WS_CLOSED", "Could Not send Message: " + 'sending gradient failed...')
                         # Send Websocket Closed Error to Paired Opponent
                         self.close()
 

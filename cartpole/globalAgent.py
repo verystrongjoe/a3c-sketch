@@ -100,7 +100,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         try:
             recent_weight = weight_q.get_nowait()
             self._recent_weight = recent_weight
-            print('get new weight {}'.format(self._recent_weight))
+            print('new weight {}'.format(self._recent_weight))
         except QueueEmpty:
             print('no weights in weight queue')
             pass
@@ -128,8 +128,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
                 print('calculating neural net weight using mean gradients {}'.format(mean))
                 # TODO: update target network using mean gradient
-                opt = SGD_custom()  # apply_gradient 방식의 custom optimizer
-
+                network.train_actor_with_grads()
+                network.train_critic_with_grads()
 
 
                 print('remained {} items in queue'.format(grads_q.qsize()))
@@ -142,29 +142,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
             self._lock = False
 
-
-    @gen.coroutine
-    def generating_weight(q):
-        # this figure means to a min threshold to start calculating mean of graidents
-
-        while True:
-            cnt = 0
-            sum = 0
-            while True:
-                i = yield grads_q.get()
-                cnt += 1
-                sum += i
-                if i > 10:
-                    print(sum)
-                    break
-
-    @gen.coroutine
-    def sending_gradient():
-        i = 0
-        while True:
-            yield grads_q.put(i)
-            i = i + 1
-
     @gen.coroutine
     def on_message(self, message):
         """
@@ -174,9 +151,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         logging.info("on_message: {}".format(message))
 
         if message == 'send' :
-            print('Server is going to send weight!! in q {}'.format(grads_q))
-
-            ## here is replaced by couroutine function for async programming
+            print('Server is going to send weight!! in q {}'.format(weight_q))
             yield self.consume_weights_of_network()
         else:
             yield grads_q.put(message)
@@ -218,8 +193,7 @@ class globalAgent():
         else:
             app.listen(port)
 
-        # tornado.ioloop.IOLoop.instance().start()
-        tornado.ioloop.IOLoop.instance().run_sync(sending_gradient())
+        tornado.ioloop.IOLoop.instance().start()
 
 
 def process_global_agent(q, ip=None, port=None) :
@@ -246,9 +220,4 @@ if __name__ =="__main__":
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete()
     # loop.close()
-
-
-
-
-
 
