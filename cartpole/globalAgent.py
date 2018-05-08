@@ -44,6 +44,8 @@ from queue import LifoQueue # use manager to use this lifoqueue in multiprocessi
 from asyncio import Queue
 import  numpy as np
 from  cartpole.optimizer import SGD_custom
+import pickle
+
 
 define("port", default=9044, help="run on the given port", type=int)
 
@@ -86,7 +88,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         global clients
 
         self.local_agent_id = self.get_argument("local_agent_id")
-        print('self.local_agent_id  : {}'.format(self.local_agent_id))
+        logging.debug('self.local_agent_id  : {}'.format(self.local_agent_id))
         # self.stream.set_nodelay(True)
         clients[self.local_agent_id] = self
 
@@ -100,47 +102,60 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         try:
             recent_weight = weight_q.get_nowait()
             self._recent_weight = recent_weight
-            print('new weight {}'.format(self._recent_weight))
+            logging.debug('new weight {}'.format(self._recent_weight))
         except QueueEmpty:
-            print('no weights in weight queue')
+            logging.debug('no weights in weight queue')
             pass
 
         yield self.write_message(self._recent_weight)
 
     @gen.coroutine
     def calculate_mean_gradient(self):
+        logging.debug('start calculating mean gradient!!')
 
         if not self._lock:
+
             self._lock = True
 
-            num_min_threshold = 10
+            try :
 
-            # here it is best place and moment to calculate the weights
-            if grads_q.qsize() >= 10:
-                grads_items = []
-                # while grads_q.empty():
-                cnt = 0
-                while cnt < num_min_threshold:
-                    i = yield grads_q.get()
-                    grads_items.append(i)
-                    cnt = cnt + 1
-                mean = np.mean(grads_items, axis=0)
+                num_min_threshold = 10
 
-                print('calculating neural net weight using mean gradients {}'.format(mean))
-                # TODO: update target network using mean gradient
-                network.train_actor_with_grads()
-                network.train_critic_with_grads()
+                # here it is best place and moment to calculate the weights
+                if grads_q.qsize() >= 10:
+                    grads_actor_items, grads_critic_items = [], []
+                    # while grads_q.empty():
+                    cnt = 0
+                    while cnt < num_min_threshold:
+                        i = yield grads_q.get()
+                        (a, c) = pickle.loads(i)
+                        grads_actor_items.append(a)
+                        grads_critic_items.append(c)
+                        cnt = cnt + 1
+                    mean_actor = np.mean(grads_actor_items, axis=0)
+                    mean_critic = np.mean(grads_critic_items, axis=0)
 
+                    logging.debug('----------------------------------------------------------')
+                    logging.debug('calculating neural net weight using mean gradients {}'.format(mean_actor))
+                    logging.debug('----------------------------------------------------------')
+                    logging.debug('calculating neural net weight using mean gradients {}'.format(mean_critic))
+                    logging.debug('----------------------------------------------------------')
 
-                print('remained {} items in queue'.format(grads_q.qsize()))
-                weight_q.put(mean)
+                    # TODO: update target network using mean gradient
+                    train_actor = network.train_actor_with_grads()
+                    train_critic = network.train_critic_with_grads()
 
+                    train_actor(mean_actor, actor)
+                    train_critic(mean_critic, critic)
 
-
-            else:
-                pass
-
-            self._lock = False
+                    logging.debug('remained {} items in queue'.format(grads_q.qsize()))
+                    weight_q.put(util.get_weight_with_serialized_data(actor, critic))
+                else:
+                    pass
+            except Exception as e:
+                logging.error(e)
+            finally:
+                self._lock = False
 
     @gen.coroutine
     def on_message(self, message):
@@ -151,10 +166,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         logging.info("on_message: {}".format(message))
 
         if message == 'send' :
-            print('Server is going to send weight!! in q {}'.format(weight_q))
+            logging.debug('Server is going to send weight!! in q {}'.format(weight_q))
             yield self.consume_weights_of_network()
         else:
             yield grads_q.put(message)
+            logging.debug('grads_q is increasing.. size :{}'.format(grads_q.qsize()))
             yield self.calculate_mean_gradient()
 
         # if message == 'send':

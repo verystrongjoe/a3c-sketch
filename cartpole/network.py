@@ -39,24 +39,18 @@ def build_model(state_size, action_size, hidden1, hidden2, verbose=False) :
 
     return actor, critic
 
-def train_critic_with_grads(critic):
-    grads = K.placeholder(shape=(None,))
-    # custom critic loss
-    discounted_reward = K.placeholder(shape=(None,))
-    value = critic.output
-    loss = K.mean(K.square(discounted_reward - value))
+def train_critic_with_grads(critic,grads):
+    grad_input = [K.placeholder(shape=K.int_shape(w), dtype=K.dtype(w)) for w in critic.trainable_weights]
     opt_c = SGD_custom(lr=config.A3C_ENV['critic_lr'])
-    updates = opt_c.get_updates(grads, critic.trainable_weights)
-    train = K.function([critic.input, discounted_reward], updates=updates)
+    updates = opt_c.get_updates(grad_input, critic.trainable_weights)
+    train = K.function([grad_input, critic.trainable_weights], updates=updates)
     return train
 
-def train_actor_with_grads(actor):
-    grads = K.placeholder(shape=(None,))
-    action = K.placeholder(shape=(None, config.A3C_ENV['action_size']))
-    advantages = K.placeholder(shape=(None,))
+def train_actor_with_grads(actor, grads):
+    grad_input = [K.placeholder(shape=K.int_shape(w), dtype=K.dtype(w)) for w in critic.trainable_weights]
     opt_a = SGD_custom(lr=config.A3C_ENV['actor_lr'])
-    updates = opt_a.get_updates(grads, actor.trainable_weights)
-    train = K.function([actor.input, action, advantages], updates=updates)
+    updates = opt_a.get_updates(grad_input, actor.trainable_weights)
+    train = K.function([grad_input, actor.trainable_weights], updates=updates)
     return train
 
 def get_gradients_from_actor(actor):

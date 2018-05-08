@@ -58,6 +58,8 @@ import functools
 import json
 import time
 import pickle
+import logging
+import traceback
 
 APPLICATION_JSON = 'application/json'
 DEFAULT_CONNECT_TIMEOUT = 60
@@ -137,12 +139,13 @@ class localAgent():
         @gen.coroutine
         def cb_on_message(self, weight):
                 # logger.debug('we get the gradient from server : {}'.format(weight))
-                print('we get the gradient from server : {}'.format(weight))
-                util.set_weight_with_serialized_data(actor, critic, weight)
+                logging.debug('we get the gradient from server : {}'.format(weight))
+                if weight is not None :
+                        util.set_weight_with_serialized_data(actor, critic, weight)
 
         @gen.coroutine
         def connect(self):
-                print("trying to connect")
+                logging.debug("trying to connect")
                 isConnected = False
 
                 while isConnected is False:
@@ -151,11 +154,12 @@ class localAgent():
                                 # self.ws = yield from websockets.connect(self.url)
                                 isConnected = True
                         except Exception as e:
-                                print("connection error : {}".format(e))
+
+                                logging.debug("connection error : {}".format(e))
                                 isConnected = False
 
                 # self.initiate()
-                print("connected")
+                logging.debug("connected")
                 self.run()
 
         @gen.coroutine
@@ -201,7 +205,7 @@ class localAgent():
                                         self.episode += 1
                                         # self.train_episode(score != 500)
                                         self.send_gradient_to_global_agent(score != 500)
-                                        print("episode: ", self.episode, "/ score : ", score)
+                                        logging.debug("episode: ", self.episode, "/ score : ", score)
                                         break
 
         # update policy network and value network every episode
@@ -226,14 +230,18 @@ class localAgent():
 
                 try:
                         # yield self.ws.write_message(weight_data, binary=True)
-                        grads = (grads_actor,grads_critic)
-                        # print('grads : {}'.format(grads))
-                        yield self.ws.write_message(pickle.dumps(grads), binary=True)
+                        grads = (grads_actor, grads_critic)
+                        # logging.debug('grads : {}'.format(grads))
+                        # print('!!!!!!!!!!!!!grads : {}'.format(grads))
+                        # yield self.ws.write_message(pickle.dumps(grads), binary=True)
+                        yield self.ws.write_message(pickle.dumps(grads))
                         # print('queue.length : {}'.format(self.weight_queue.qsize()))
-                except WebSocketClosedError:
+                except WebSocketClosedError as e:
                         # logger.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
-                        logger.warning("WS_CLOSED", "Could Not send Message: " + 'sending gradient failed...')
+                        # logger.warning("WS_CLOSED", "Could Not send Message: " + 'sending gradient failed...')
                         # Send Websocket Closed Error to Paired Opponent
+                        print(traceback.format_exc())
+                        logger.error('WebSocketClosedError got occurred. msg : {}'.format(e))
                         self.close()
 
                 self.states, self.actions, self.rewards = [], [], []
@@ -243,10 +251,10 @@ class localAgent():
 
         def keep_alive(self):
                 if self.is_connection_closed :
-                        print('keey_alive : disconnected')
+                        logging.debug('key_alive : disconnected')
                         self.connect()
                 else:
-                        print('keey_alive : send heart bit message to check ')
+                        logging.debug('keey_alive : send heart bit message to check ')
                         self.ws.write_message("check")
 
         def get_action(self, state):
