@@ -28,7 +28,7 @@ class SGD_custom(SGD):
         decay: float >= 0. Learning rate decay over each update.
         nesterov: boolean. Whether to apply Nesterov momentum.
     """
-    @interfaces.legacy_get_updates_support
+    # @interfaces.legacy_get_updates_support
     def get_updates(self, grads, params):
         self.updates = [K.update_add(self.iterations, 1)]
 
@@ -101,15 +101,10 @@ if __name__ == "__main__" :
     # define keras function
     fun = K.function(inputs=grad_input,
                      outputs=model1.trainable_weights,
-                     updates=model1.optimizer.updates)
+                     updates=update_ops)
     # value로 받은 gradient로 update 하는 함수
     # output으로 나오는 trainable_weights를 통해 모델이 학습되는 것을 확인 가능
     fun(grad)
-
-
-
-
-
 
 
     # cf) compare updates and gradient

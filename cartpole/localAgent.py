@@ -49,7 +49,7 @@ from keras import backend as K
 import gym
 import numpy as np
 import json
-import logging as logger
+import logging
 import time
 import asyncio
 from asyncio import Queue
@@ -70,12 +70,13 @@ action_size = env.action_space.n
 state_size = env.observation_space.shape[0]
 
 # declaring here is to share this between WShanlder and global agent
-actor, critic = network.build_model(state_size, action_size, 24, 24, True)
+actor, critic = network.build_model(state_size, action_size, 24, 24, False)
+
+logging.basicConfig(level=logging.DEBUG)
 
 class localAgent():
 
         def __init__(self, url,  global_newtork_ip='localhost', global_newtowrk_port=9044, timeout=5):
-
                 # self.actor, self.critic = network.build_model()
                 self.ws = None
                 self.ws_recv = None
@@ -138,9 +139,9 @@ class localAgent():
 
         @gen.coroutine
         def cb_on_message(self, weight):
-                # logger.debug('we get the gradient from server : {}'.format(weight))
-                logging.debug('we get the gradient from server : {}'.format(weight))
-                if weight is not None :
+                # logging.debug('we get the gradient from server : {}'.format(weight))
+                logging.debug('we get weights of global agent\'s network from server : {}'.format(weight))
+                if weight is not None:
                         util.set_weight_with_serialized_data(actor, critic, weight)
 
         @gen.coroutine
@@ -154,20 +155,18 @@ class localAgent():
                                 # self.ws = yield from websockets.connect(self.url)
                                 isConnected = True
                         except Exception as e:
-
                                 logging.debug("connection error : {}".format(e))
                                 isConnected = False
-
                 # self.initiate()
                 logging.debug("connected")
                 self.run()
 
         @gen.coroutine
         def get_weight_from_global_network(self):
-                logger.debug('get_weight_from_global_network :: trying to get message from global network!!')
+                logging.debug('get_weight_from_global_network :: trying to get message from global network!!')
                 while True:
                         if self.is_connection_closed is True:
-                                # print('reconnect..')
+                                logging.warning('reconnect..')
                                 self.connect()
                         else:
                                 break
@@ -205,7 +204,7 @@ class localAgent():
                                         self.episode += 1
                                         # self.train_episode(score != 500)
                                         self.send_gradient_to_global_agent(score != 500)
-                                        logging.debug("episode: ", self.episode, "/ score : ", score)
+                                        logging.debug("episode: {}, score : {}".format(self.episode, score))
                                         break
 
         # update policy network and value network every episode
@@ -233,15 +232,15 @@ class localAgent():
                         grads = (grads_actor, grads_critic)
                         # logging.debug('grads : {}'.format(grads))
                         # print('!!!!!!!!!!!!!grads : {}'.format(grads))
-                        # yield self.ws.write_message(pickle.dumps(grads), binary=True)
-                        yield self.ws.write_message(pickle.dumps(grads))
+                        yield self.ws.write_message(pickle.dumps(grads), binary=True)
+                        # yield self.ws.write_message(pickle.dumps(grads))
                         # print('queue.length : {}'.format(self.weight_queue.qsize()))
                 except WebSocketClosedError as e:
-                        # logger.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
-                        # logger.warning("WS_CLOSED", "Could Not send Message: " + 'sending gradient failed...')
+                        # logging.warning("WS_CLOSED", "Could Not send Message: " + str(weight_data))
+                        # logging.warning("WS_CLOSED", "Could Not send Message: " + 'sending gradient failed...')
                         # Send Websocket Closed Error to Paired Opponent
-                        print(traceback.format_exc())
-                        logger.error('WebSocketClosedError got occurred. msg : {}'.format(e))
+                        # print(traceback.format_exc())
+                        logging.error('WebSocketClosedError got occurred. msg : {}'.format(e))
                         self.close()
 
                 self.states, self.actions, self.rewards = [], [], []

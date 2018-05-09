@@ -16,8 +16,6 @@ num_size_grads_queue
  : which means the maximum count hainvg gradients of local agents in a queue
 num_min_threshold
  : once the queue size is over this value, we will calculate mean calculation of graidents.
-
-
 '''
 
 import logging
@@ -61,14 +59,21 @@ env = gym.make(config.A3C_ENV['env_name'])
 action_size = env.action_space.n
 state_size = env.observation_space.shape[0]
 
-actor, critic = network.build_model(state_size, action_size, 24, 24, True)  # declaring here is to share this between WShanlder and global agent
+actor, critic = network.build_model(state_size, action_size, 24, 24, False)  # declaring here is to share this between WShanlder and global agent
+
+
+logging.basicConfig(level=logging.INFO)
+
 
 class Application(tornado.web.Application):
     def __init__(self):
+        logging.debug('Application init')
         handlers = [(r"/", WSHandler)
                     ]
         settings = dict(debug=True)
         tornado.web.Application.__init__(self, handlers, **settings)
+
+
 
 class WSHandler(tornado.websocket.WebSocketHandler):
 
@@ -76,6 +81,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     _recent_weight = None
 
     def __init__(self, application, request, **kwargs):
+        logging.debug('WsHandler init')
+
         super(WSHandler, self).__init__(application, request, **kwargs)
         self.ws_connection = None
         self.close_code = None
@@ -99,15 +106,21 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         but, for now I won't consider about it. just develop it so simple
         :return:
         """
+        logging.debug('consume_weights_of_network')
         try:
-            recent_weight = weight_q.get_nowait()
+            if self._recent_weight is None:
+                recent_weight = yield weight_q.get()
+            else :
+                recent_weight = weight_q.get_nowait()
+
             self._recent_weight = recent_weight
             logging.debug('new weight {}'.format(self._recent_weight))
+
         except QueueEmpty:
             logging.debug('no weights in weight queue')
             pass
 
-        yield self.write_message(self._recent_weight)
+        yield self.write_message(self._recent_weight, binary=True)
 
     @gen.coroutine
     def calculate_mean_gradient(self):
@@ -117,7 +130,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
             self._lock = True
 
-            try :
+            try:
 
                 num_min_threshold = 10
 
@@ -142,11 +155,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     logging.debug('----------------------------------------------------------')
 
                     # TODO: update target network using mean gradient
-                    train_actor = network.train_actor_with_grads()
-                    train_critic = network.train_critic_with_grads()
+                    train_actor = network.get_func_train_actor_with_grads(actor)
+                    train_critic = network.get_func_train_critic_with_grads(critic)
 
-                    train_actor(mean_actor, actor)
-                    train_critic(mean_critic, critic)
+                    train_actor([i for i in mean_actor])
+                    train_critic([i for i in mean_critic])
 
                     logging.debug('remained {} items in queue'.format(grads_q.qsize()))
                     weight_q.put(util.get_weight_with_serialized_data(actor, critic))
@@ -163,7 +176,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         when we receive some message we want some message handler..
         for this example i will just print message to console
         """
-        logging.info("on_message: {}".format(message))
+        logging.debug("on_message: {}".format(message))
 
         if message == 'send' :
             logging.debug('Server is going to send weight!! in q {}'.format(weight_q))
@@ -198,16 +211,26 @@ class globalAgent():
     '''
     def __init__(self, ip=None, port=None):
 
+        logging.debug('global agent init')
+
         # first weight of two models must be appended to the queue
         # q.append(util.get_weight_with_serialized_data(actor, critic))
         weight_q.put(util.get_weight_with_serialized_data(actor, critic))
 
-        tornado.options.parse_command_line()
+        logging.debug('finished putting weight into a queue')
+
+        # tornado.options.parse_command_line()
         app = Application()
+
+        logging.debug('about to listen.')
+
+
         if port is None :
             app.listen(options.port)
         else:
             app.listen(port)
+
+        logging.debug('event loop start')
 
         tornado.ioloop.IOLoop.instance().start()
 
@@ -226,11 +249,12 @@ def process_global_agent(q, ip=None, port=None) :
     tornado.ioloop.IOLoop.instance().start()
 
 
-
 if __name__ =="__main__":
 
     # p = Thread(target=generating_weight, args=(grads_q,))
     # p.start()
+
+    logging.debug('main')
 
     globalAgent()
     # loop = asyncio.get_event_loop()

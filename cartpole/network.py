@@ -39,23 +39,25 @@ def build_model(state_size, action_size, hidden1, hidden2, verbose=False) :
 
     return actor, critic
 
-def train_critic_with_grads(critic,grads):
+def get_func_train_critic_with_grads(critic):
     grad_input = [K.placeholder(shape=K.int_shape(w), dtype=K.dtype(w)) for w in critic.trainable_weights]
     opt_c = SGD_custom(lr=config.A3C_ENV['critic_lr'])
     updates = opt_c.get_updates(grad_input, critic.trainable_weights)
-    train = K.function([grad_input, critic.trainable_weights], updates=updates)
+    train = K.function(grad_input, [],updates=updates)
     return train
 
-def train_actor_with_grads(actor, grads):
-    grad_input = [K.placeholder(shape=K.int_shape(w), dtype=K.dtype(w)) for w in critic.trainable_weights]
+def get_func_train_actor_with_grads(actor):
+    grad_input = [K.placeholder(shape=K.int_shape(w), dtype=K.dtype(w)) for w in actor.trainable_weights]
     opt_a = SGD_custom(lr=config.A3C_ENV['actor_lr'])
+
     updates = opt_a.get_updates(grad_input, actor.trainable_weights)
-    train = K.function([grad_input, actor.trainable_weights], updates=updates)
+
+    train = K.function(grad_input, [], updates=updates)
     return train
 
 def get_gradients_from_actor(actor):
     """
-    get gradients from actor model
+    get gradients from actor mode
     :param actor:
     :param actor_lr:
     :param action_size:
